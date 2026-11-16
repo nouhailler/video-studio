@@ -1,0 +1,43 @@
+{
+  "name": "@nouhailler/video-studio",
+  "version": "0.1.0",
+  "description": "Génération automatique de tutoriels vidéo à partir d'applications web réelles : scénario TypeScript → capture Playwright → voix locale (Piper) → composition Remotion → MP4, sous-titres, chapitres.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Patrick Nouhailler (https://swinux.ch)",
+  "repository": { "type": "git", "url": "git+https://github.com/nouhailler/video-studio.git" },
+  "engines": { "node": ">=20" },
+  "bin": { "video-studio": "bin/video-studio.mjs" },
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime/engine.ts",
+    "./package.json": "./package.json"
+  },
+  "files": ["bin", "src", "scripts", "templates", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "example": "node bin/video-studio.mjs generate --config example/video/video.config.ts --scenario example-fr"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/spectral": "5.3.0",
+    "@remotion/bundler": "4.0.539",
+    "@remotion/cli": "4.0.539",
+    "@remotion/renderer": "4.0.539",
+    "esbuild": "^0.28.1",
+    "playwright": "^1.60.0",
+    "react": ">=18.2.0 <20",
+    "react-dom": ">=18.2.0 <20",
+    "remotion": "4.0.539",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "jsdom": "^29.1.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.8"
+  }
+}

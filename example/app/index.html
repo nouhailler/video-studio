@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet du ciel</title>
+<style>
+  :root{--bg:#0b1020;--card:#141b33;--line:#26304f;--text:#e8ecf8;--dim:#9aa6c8;--accent:#7cc4ff}
+  *{box-sizing:border-box} body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;gap:24px;padding:18px 32px;border-bottom:1px solid var(--line)}
+  header h1{font-size:22px;margin:0;margin-right:auto} nav{display:flex;gap:8px}
+  nav button,.btn{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font:inherit;cursor:pointer}
+  nav button.on{background:var(--accent);color:#081018;border-color:var(--accent)}
+  main{padding:28px 32px;display:grid;grid-template-columns:1fr 360px;gap:28px}
+  input{width:100%;padding:12px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit}
+  ul{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:10px}
+  li{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px;display:flex;justify-content:space-between;cursor:pointer}
+  li small{color:var(--dim)} aside{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;min-height:240px}
+  aside h2{margin:0 0 8px} .muted{color:var(--dim)} section[hidden]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>✦ Carnet du ciel</h1>
+  <nav>
+    <button class="on" data-demo-id="nav-objets" data-view="objets">Objets</button>
+    <button data-demo-id="nav-carnet" data-view="carnet">Carnet</button>
+  </nav>
+</header>
+<section id="objets"><main>
+  <div>
+    <input data-demo-id="recherche" placeholder="Rechercher un objet…">
+    <ul data-demo-id="liste"></ul>
+  </div>
+  <aside data-demo-id="fiche"><h2>Choisissez un objet</h2><p class="muted">La fiche détaillée s’affiche ici.</p></aside>
+</main></section>
+<section id="carnet" hidden><main>
+  <div><h2>Mes observations</h2><ul data-demo-id="observations">
+    <li><span>Lune — cratère Copernic<br><small>12 nov. · lunette 90 mm</small></span></li>
+    <li><span>M42 — nébuleuse d’Orion<br><small>8 nov. · jumelles 10×50</small></span></li>
+  </ul></div>
+  <aside><h2>Astuce</h2><p class="muted">Notez le matériel et les conditions de chaque séance.</p></aside>
+</main></section>
+<script>
+  const OBJ = [
+    { id: 'lune', nom: 'Lune', type: 'Satellite naturel', mag: -12.6, txt: 'Idéale aux jumelles près du terminateur.' },
+    { id: 'jupiter', nom: 'Jupiter', type: 'Planète', mag: -2.5, txt: 'Quatre lunes galiléennes visibles dès 10×.' },
+    { id: 'm42', nom: 'M42', type: 'Nébuleuse', mag: 4.0, txt: 'La grande nébuleuse d’Orion, sous le baudrier.' },
+    { id: 'm31', nom: 'M31', type: 'Galaxie', mag: 3.4, txt: 'La galaxie d’Andromède, à 2,5 millions d’années-lumière.' },
+  ]
+  const liste = document.querySelector('[data-demo-id="liste"]')
+  const fiche = document.querySelector('[data-demo-id="fiche"]')
+  function render(q = '') {
+    liste.innerHTML = ''
+    for (const o of OBJ.filter((o) => o.nom.toLowerCase().includes(q.toLowerCase()))) {
+      const li = document.createElement('li')
+      li.dataset.demoId = 'objet-' + o.id
+      li.innerHTML = `<span>${o.nom}<br><small>${o.type}</small></span><small>mag ${o.mag}</small>`
+      li.onclick = () => { fiche.innerHTML = `<h2>${o.nom}</h2><p class="muted">${o.type} · magnitude ${o.mag}</p><p>${o.txt}</p>` }
+      liste.appendChild(li)
+    }
+  }
+  document.querySelector('[data-demo-id="recherche"]').addEventListener('input', (e) => render(e.target.value))
+  document.querySelectorAll('nav button').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('on', x === b))
+    document.querySelectorAll('section').forEach((s) => s.hidden = s.id !== b.dataset.view)
+  })
+  render()
+</script>
+</body>
+</html>

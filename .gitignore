@@ -1,0 +1,7 @@
+node_modules/
+*.tgz
+example/video/audio/
+example/video/cache/
+example/video/recordings/
+example/video/build/
+example/video/output/
