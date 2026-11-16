@@ -27,24 +27,27 @@ export function collectTargets(p: Project): { exact: Set<string>; prefixes: stri
   const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) =>
     d.isDirectory()
       ? (['node_modules', '__tests__', 'dist', '.git'].includes(d.name) ? [] : walk(path.join(dir, d.name)))
-      : /\.(jsx?|tsx?|vue|svelte|html)$/.test(d.name) ? [path.join(dir, d.name)] : [])
+      : /\.(jsx?|tsx?|vue|svelte|html|dart)$/.test(d.name) ? [path.join(dir, d.name)] : [])
   const res = [
     new RegExp(`${attr}="([^"]+)"`, 'g'),
     new RegExp(`${attr}='([^']+)'`, 'g'),
     /demoId="([^"]+)"/g,
     new RegExp(`${attr}=\\{[^}]*?'([^'$]+)'[^}]*\\}`, 'g'),
   ]
+  // Flutter : Semantics(identifier: 'x') — paramètre nommé Dart, interpolation $id / ${…}.
+  const dartRes = [new RegExp(`\\b${attr}:\\s*'([^'\\n]+)'`, 'g'), new RegExp(`\\b${attr}:\\s*"([^"\\n]+)"`, 'g')]
+  const custom = v.patterns.map((re) => (re.flags.includes('g') ? re : new RegExp(re.source, `${re.flags}g`)))
   for (const dir of v.sourceDirs.map((d) => path.resolve(p.root, d)).filter(existsSync)) {
     for (const f of walk(dir)) {
       const code = readFileSync(f, 'utf8')
-      for (const re of res) for (const m of code.matchAll(re)) exact.add(m[1])
+      for (const re of [...(f.endsWith('.dart') ? dartRes : res), ...custom]) for (const m of code.matchAll(re)) if (m[1]) exact.add(m[1])
       for (const m of code.matchAll(/demoIdPrefix="([^"]+)"/g)) prefixes.push(`${m[1]}-`)
       for (const m of code.matchAll(new RegExp(`${attr}=\\{\`([a-zA-Z0-9_-]+-)\\$\\{`, 'g'))) prefixes.push(m[1])
     }
   }
-  // Valeurs interpolées (`objet-${id}`, {{ … }}) : on garde le préfixe fixe.
+  // Valeurs interpolées (`objet-${id}`, {{ … }}, Dart 'objet-$id') : on garde le préfixe fixe.
   for (const e of [...exact]) {
-    const cut = e.search(/\$\{|\{\{/)
+    const cut = e.search(/\$\{|\{\{|\$[A-Za-z_]/)
     if (cut >= 0) { exact.delete(e); if (cut > 0) prefixes.push(e.slice(0, cut)) }
   }
   return { exact, prefixes: [...new Set(prefixes)] }

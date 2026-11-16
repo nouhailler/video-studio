@@ -1,6 +1,6 @@
 {
   "name": "@nouhailler/video-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Génération automatique de tutoriels vidéo à partir d'applications web réelles : scénario TypeScript → capture Playwright → voix locale (Piper) → composition Remotion → MP4, sous-titres, chapitres.",
   "type": "module",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "./runtime": "./src/runtime/engine.ts",
     "./package.json": "./package.json"
   },
-  "files": ["bin", "src", "scripts", "templates", "README.md", "LICENSE"],
+  "files": ["bin", "src", "scripts", "templates", "README.md", "CHANGELOG.md", "LICENSE"],
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",

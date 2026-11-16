@@ -15,7 +15,7 @@ import type { CaptureEvent, CaptureManifest, CaptureRequest, DemoEvent, DemoRunR
 import { holdsFromManifest, loadVoiceFor } from './generate-voice'
 import { PKG_DIR, projectFiles, projectPaths, rel } from './lib/paths'
 import { buildApp, startApp, type AppServer } from './lib/server'
-import { StudioError, ensureDir, runOk, sleep, writeJson } from './lib/util'
+import { StudioError, ensureDir, ffprobe, runOk, sleep, writeJson } from './lib/util'
 
 const EXTERNAL = /^https?:\/\/(?!127\.0\.0\.1[:/]|localhost[:/])/
 
@@ -248,10 +248,16 @@ export async function record(p: Project, scn: VideoScenario, opts: RecordOptions
     log(`assemblage de ${frames.length} images…`)
     await runOk('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', list,
       '-vf', `fps=${fps},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p`,
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-movflags', '+faststart', mp4])
+      // GOP court : Remotion (OffthreadVideo) extrait les images bien plus vite.
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-g', String(fps), '-movflags', '+faststart', mp4])
     const durationS = endTs - first
-    const W = Math.round(cap.viewport.width * cap.deviceScaleFactor / 2) * 2
-    const H = Math.round(cap.viewport.height * cap.deviceScaleFactor / 2) * 2
+    // Taille réelle, mesurée : le screencast Chromium livre des images en pixels CSS
+    // et ignore deviceScaleFactor.
+    const expectedW = Math.round(cap.viewport.width * cap.deviceScaleFactor / 2) * 2
+    const probed = (await ffprobe(mp4)).streams.find((s) => s.codec_type === 'video')
+    const W = probed?.width ?? expectedW
+    const H = probed?.height ?? Math.round(cap.viewport.height * cap.deviceScaleFactor / 2) * 2
+    if (W < expectedW) log(`capture en ${W}×${H} (le screencast Chromium ignore deviceScaleFactor ${cap.deviceScaleFactor})`)
 
     // ── Synchronisation ───────────────────────────────────────────────────
     const mark = events.find((e) => e.type === 'sync:mark')

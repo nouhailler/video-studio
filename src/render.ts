@@ -94,6 +94,33 @@ export async function verifyExport(mp4: string, tl: Timeline): Promise<ExportChe
   }
 }
 
+/** Erreurs Remotion qu'un nouvel essai, moins gourmand, règle en général. */
+function isTransientRenderError(err: unknown): boolean {
+  const m = String((err as Error)?.message ?? err)
+  return /delayRender|timeout|Target closed|Request closed|Could not extract frame|ProtocolError/i.test(m)
+}
+
+/**
+ * Chrome Headless Shell de Remotion (~100 Mo, dans node_modules/.remotion du projet).
+ * Appelé par `setup` et avant chaque rendu, pour que le téléchargement soit annoncé.
+ */
+export async function ensureRemotionBrowser(log: (m: string) => void): Promise<void> {
+  const { ensureBrowser } = await import('@remotion/renderer')
+  let last = -25
+  await ensureBrowser({
+    onBrowserDownload: () => {
+      log('téléchargement de Chrome Headless Shell pour Remotion (~100 Mo, une fois par projet)…')
+      return {
+        version: null,
+        onProgress: ({ percent }) => {
+          const pct = Math.floor(percent <= 1 ? percent * 100 : percent)
+          if (pct >= last + 25) { last = pct; log(`téléchargement ${pct} %`) }
+        },
+      }
+    },
+  })
+}
+
 export async function render(p: Project, scn: VideoScenario, opts: RenderOptions = {}): Promise<RenderOutput> {
   const log = opts.log ?? (() => {})
   const files = projectFiles(p)
@@ -112,15 +139,32 @@ export async function render(p: Project, scn: VideoScenario, opts: RenderOptions
   const mp4 = files.mp4(scn.id)
   const tmp = `${mp4}.partial.mp4`
   rmSync(tmp, { force: true })
-  let lastPct = -10
-  await renderMedia({
-    composition, serveUrl, inputProps, codec: 'h264', audioCodec: 'aac', crf: p.config.output.crf,
-    pixelFormat: 'yuv420p', outputLocation: tmp, concurrency: p.config.output.concurrency, chromiumOptions: { gl: 'swangle' },
-    onProgress: ({ progress }) => {
-      const pct = Math.floor(progress * 100)
-      if (pct >= lastPct + 10) { lastPct = pct; log(`rendu ${pct} %`) }
-    },
-  })
+  await ensureRemotionBrowser(log)
+  const out = p.config.output
+  const attempt = (concurrency: number, timeoutInMilliseconds: number) => {
+    let lastPct = -10
+    return renderMedia({
+      composition, serveUrl, inputProps, codec: 'h264', audioCodec: 'aac', crf: out.crf,
+      pixelFormat: 'yuv420p', outputLocation: tmp, concurrency, timeoutInMilliseconds, chromiumOptions: { gl: 'swangle' },
+      onProgress: ({ progress }) => {
+        const pct = Math.floor(progress * 100)
+        if (pct >= lastPct + 10) { lastPct = pct; log(`rendu ${pct} %`) }
+      },
+    })
+  }
+  try {
+    await attempt(out.concurrency, out.timeoutMs)
+  } catch (err) {
+    // Délai dépassé ou onglet fermé : presque toujours un manque de mémoire.
+    // Un seul onglet et un délai doublé suffisent en général.
+    if (!isTransientRenderError(err)) throw err
+    log(`rendu interrompu (${String((err as Error).message ?? err).split('\n')[0].slice(0, 140)}) → nouvel essai : 1 onglet, délai ${(out.timeoutMs * 2) / 1000} s`)
+    rmSync(tmp, { force: true })
+    try { await attempt(1, out.timeoutMs * 2) } catch (err2) {
+      throw new StudioError(`Rendu Remotion impossible : ${(err2 as Error).message?.split('\n')[0] ?? err2}`,
+        'Mémoire insuffisante ? Fermer d’autres applications ou fixer output.concurrency: 1 dans la configuration.')
+    }
+  }
 
   const check = await verifyExport(tmp, tl)
   writeJson(files.report(scn.id), {

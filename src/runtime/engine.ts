@@ -29,6 +29,15 @@ type W = Window & {
 
 class StepError extends Error {}
 
+/** Éléments qui portent eux-mêmes une action (HTML, ARIA, nœuds d'accessibilité Flutter). */
+const ACTIONABLE = 'button, a[href], input, select, textarea, summary, label, [role="button"], [role="tab"], [role="link"], [role="menuitem"], [role="option"], [role="checkbox"], [role="radio"], [role="switch"], [flt-tappable]'
+/** Champs saisissables, y compris à l'intérieur d'un conteneur (TextField Flutter : <flt-semantics> > <input>). */
+/** Mutation due à l'overlay du moteur (curseur, onde, surbrillance) et non à l'application. */
+const isOverlay = (n: Node | null): boolean => n instanceof Element && n.closest('.vs-shield, .vs-highlight, .vs-cursor, .vs-ripple') !== null
+const isOverlayRecord = (m: MutationRecord): boolean =>
+  isOverlay(m.target) || (m.type === 'childList' && [...m.addedNodes, ...m.removedNodes].length > 0 && [...m.addedNodes, ...m.removedNodes].every((n) => n instanceof Element && n.matches('.vs-shield, .vs-highlight, .vs-cursor, .vs-ripple')))
+const EDITABLE = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, [contenteditable=""], [contenteditable="true"]'
+
 const CURSOR = (accent: string, ink: string) =>
   `<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M5 3l14 8.5-6 1.4L10.5 19 5 3z" fill="${ink}" stroke="${accent}" stroke-width="1.4" stroke-linejoin="round"/></svg>`
 
@@ -131,12 +140,20 @@ export class RuntimeEngine {
         if (typeof step.url === 'string') {
           history.pushState(null, '', step.url)
           window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+          await this.waitForSettled()
         } else if (step.target) {
           const el = await this.waitForEl(step.target)
           await this.moveCursorTo(el)
-          await this.clickEl(el, step.target)
+          const href = location.href
+          const watch = this.watchMutations()
+          let changed = false
+          try {
+            await this.clickEl(el, step.target)
+            await this.waitForSettled()
+            changed = watch.count() > 0 || location.href !== href
+          } finally { watch.stop() }
+          if (!changed) throw new StepError(`La navigation par « ${step.target} » n'a rien changé (clic sans effet : élément non cliquable ?)`)
         }
-        await this.waitForSettled()
         this.emit('navigation:complete', { url: step.url ?? null, target: step.target ?? null })
         break
       }
@@ -166,14 +183,15 @@ export class RuntimeEngine {
       case 'type': {
         const el = await this.waitForEl(String(step.target))
         if (step.narrate) this.setNarration(step.narrate)
-        if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable)) {
-          throw new StepError(`Élément « ${step.target} » non saisissable`)
-        }
+        const field = this.editableTarget(el)
+        if (!field) throw new StepError(`Élément « ${step.target} » non saisissable (ni champ, ni champ à l'intérieur)`)
         await this.moveCursorTo(el)
         this.showHighlight(el)
-        el.focus()
+        field.focus()
+        // Flutter n'active l'édition qu'après la prise de focus du champ d'accessibilité.
+        await this.sleep(this.scaled(150))
         this.emit('action:type', { target: step.target, text: step.text })
-        await this.typeInto(el, String(step.text ?? ''))
+        await this.typeInto(field, String(step.text ?? ''))
         break
       }
       default:
@@ -188,6 +206,7 @@ export class RuntimeEngine {
     this.emit('action:click', { target, x: this.cursorX, y: this.cursorY })
     const o = { bubbles: true, cancelable: true, clientX: this.cursorX, clientY: this.cursorY }
     const Ptr = typeof PointerEvent === 'function' ? PointerEvent : MouseEvent
+    el = this.actionTarget(el)
     el.dispatchEvent(new Ptr('pointerdown', o))
     el.dispatchEvent(new MouseEvent('mousedown', o))
     el.dispatchEvent(new Ptr('pointerup', o))
@@ -215,6 +234,36 @@ export class RuntimeEngine {
   }
 
   // ── Ciblage et attentes ───────────────────────────────────────────────────
+  /**
+   * Élément qui reçoit réellement le clic. Si la cible ne porte pas d'action
+   * mais contient un élément actionnable qui la recouvre presque entièrement
+   * (identifiant posé au-dessus d'un bouton ou d'un InkWell Flutter), c'est lui
+   * qu'on clique. Un petit bouton à l'intérieur d'une carte n'est jamais choisi.
+   */
+  private actionTarget(el: HTMLElement): HTMLElement {
+    if (el.matches(ACTIONABLE)) return el
+    const outer = el.getBoundingClientRect()
+    const area = outer.width * outer.height
+    if (!area) return el
+    for (const inner of el.querySelectorAll<HTMLElement>(ACTIONABLE)) {
+      const r = inner.getBoundingClientRect()
+      if (this.visible(inner) && (r.width * r.height) / area >= 0.6) return inner
+    }
+    return el
+  }
+
+  private editableTarget(el: HTMLElement): HTMLInputElement | HTMLTextAreaElement | HTMLElement | null {
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable) return el
+    return el.querySelector<HTMLElement>(EDITABLE)
+  }
+
+  private watchMutations(): { count: () => number; stop: () => void } {
+    let n = 0
+    const mo = new MutationObserver((list) => { n += list.filter((m) => !isOverlayRecord(m)).length })
+    mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
+    return { count: () => n, stop: () => mo.disconnect() }
+  }
+
   private find(id: string): HTMLElement | null {
     const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id.replace(/["\\]/g, '\\$&')
     return document.querySelector<HTMLElement>(`[${this.cfg.targetAttribute}="${esc}"]`)
@@ -260,7 +309,7 @@ export class RuntimeEngine {
     const timeout = this.opts.stepTimeoutMs ?? 10000
     const t0 = this.clock.now()
     let lastMutation = this.clock.now()
-    const mo = new MutationObserver(() => { lastMutation = this.clock.now() })
+    const mo = new MutationObserver((list) => { if (list.some((m) => !isOverlayRecord(m))) lastMutation = this.clock.now() })
     mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
     try {
       while (!this.aborted) {
@@ -334,8 +383,18 @@ export class RuntimeEngine {
   }
 
   private showHighlight(el: HTMLElement, label?: string): void {
+    const wasHidden = !this.hlTarget || this.highlight.style.opacity !== '1'
     this.hlTarget = el
-    this.positionHighlight()
+    if (wasHidden) {
+      // Cadre masqué : il apparaît directement sur sa cible au lieu de glisser
+      // depuis sa position précédente (souvent sur un autre écran).
+      this.highlight.style.transition = 'none'
+      this.positionHighlight()
+      void this.highlight.offsetWidth
+      this.highlight.style.transition = ''
+    } else {
+      this.positionHighlight()
+    }
     this.highlight.style.opacity = '1'
     this.hlLabel.textContent = label ?? ''
     this.hlLabel.style.display = label ? 'block' : 'none'

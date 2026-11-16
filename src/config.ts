@@ -106,6 +106,11 @@ export interface VideoStudioConfig {
     /** Cibles générées dynamiquement, inconnues de l'analyse statique. */
     extraTargets?: string[]
     targetPrefixes?: string[]
+    /**
+     * Motifs supplémentaires pour repérer les cibles dans le code (groupe 1 = identifiant).
+     * Les fichiers .dart sont déjà reconnus : `Semantics(identifier: 'x')`.
+     */
+    patterns?: RegExp[]
     /** Contrôles propres à l'app ; renvoie des messages d'erreur. */
     validateStep?: (step: BaseStep, index: number) => string[]
   }
@@ -132,7 +137,13 @@ export interface CaptureConfig {
   colorScheme: 'dark' | 'light'
 }
 
-export interface OutputConfig { width: number; height: number; fps: number; crf: number; concurrency: number }
+export interface OutputConfig {
+  width: number; height: number; fps: number; crf: number
+  /** Onglets de rendu Remotion en parallèle (en cas d'échec, nouvel essai avec 1). */
+  concurrency: number
+  /** Délai Remotion par image (delayRender), en ms. */
+  timeoutMs: number
+}
 
 export interface SubtitleConfig { maxCharsPerLine: number; maxLines: number; minCueMs: number; burnIn: boolean }
 
@@ -193,7 +204,7 @@ export interface ResolvedConfig {
   network: { mode: 'replay' | 'refresh' | 'offline'; fixtures: NetworkFixture[]; fixturesDir: string; blockedHosts: RegExp[] }
   preseed?: VideoStudioConfig['preseed']
   verifyRestore: VideoStudioConfig['verifyRestore']
-  validation: { sourceDirs: string[]; targetAttribute: string; extraTargets: string[]; targetPrefixes: string[]; validateStep?: (step: BaseStep, i: number) => string[] }
+  validation: { sourceDirs: string[]; targetAttribute: string; extraTargets: string[]; targetPrefixes: string[]; patterns: RegExp[]; validateStep?: (step: BaseStep, i: number) => string[] }
   theme: TimelineTheme & { fontCss: string[]; logoPath: string | null }
 }
 
@@ -229,7 +240,7 @@ export function resolveConfig(c: VideoStudioConfig, dir: string, root: string): 
       ...LAYOUT_CAPTURE[layout], jpegQuality: 92, stepTimeoutMs: 10000, breathMs: 650, tailMs: 1200,
       maxDurationMs: 15 * 60 * 1000, locale: 'fr-FR', timezone: 'Europe/Paris', colorScheme: 'dark', ...c.capture,
     },
-    output: { width: 1920, height: 1080, fps: 30, crf: 18, concurrency: 2, ...c.output },
+    output: { width: 1920, height: 1080, fps: 30, crf: 18, concurrency: 2, timeoutMs: 120000, ...c.output },
     narration: { pauseBeforeMs: 300, pauseAfterMs: 550, ...c.narration },
     voices: { ...DEFAULT_VOICES, ...c.voices },
     defaultVoice: { fr: 'fr-siwis', en: 'en-alba', ...c.defaultVoice },
@@ -247,9 +258,10 @@ export function resolveConfig(c: VideoStudioConfig, dir: string, root: string): 
     verifyRestore: c.verifyRestore ?? false,
     validation: {
       sourceDirs: c.validation?.sourceDirs ?? ['src'],
-      targetAttribute: c.validation?.targetAttribute ?? (c.driver.type === 'runtime' ? c.driver.targetAttribute ?? 'data-demo-id' : 'data-demo-id'),
+      targetAttribute: c.validation?.targetAttribute ?? defaultSourceAttribute(c),
       extraTargets: c.validation?.extraTargets ?? [],
       targetPrefixes: c.validation?.targetPrefixes ?? [],
+      patterns: c.validation?.patterns ?? [],
       validateStep: c.validation?.validateStep,
     },
     theme: {
@@ -264,6 +276,12 @@ export function resolveConfig(c: VideoStudioConfig, dir: string, root: string): 
       fontCss: c.theme?.fontCss ?? [],
     },
   }
+}
+
+/** Attribut cherché dans le code : Flutter expose `Semantics(identifier:)` sous `flt-semantics-identifier`. */
+function defaultSourceAttribute(c: VideoStudioConfig): string {
+  const attr = c.driver.type === 'runtime' ? c.driver.targetAttribute ?? 'data-demo-id' : 'data-demo-id'
+  return attr === 'flt-semantics-identifier' ? 'identifier' : attr
 }
 
 function findRoot(start: string): string {

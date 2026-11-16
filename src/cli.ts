@@ -18,7 +18,7 @@ import { findScenario } from './lib/narration'
 import { PKG_DIR, projectFiles, rel } from './lib/paths'
 import { StudioError, fmtMs, hasBinary, parseArgs, writeJson } from './lib/util'
 import { record } from './record'
-import { preparePublicDir, render, writeEntry } from './render'
+import { ensureRemotionBrowser, preparePublicDir, render, writeEntry } from './render'
 import { validateScenario } from './validate'
 
 const C = {
@@ -72,7 +72,16 @@ async function main() {
   const cmd = args._[0]
   console.log(`\n${C.bold(C.gold('VIDEO STUDIO'))}`)
 
-  if (cmd === 'setup') { process.exitCode = await runSetup(args); return }
+  if (cmd === 'setup') {
+    process.exitCode = await runSetup(args)
+    if (process.exitCode === 0) {
+      console.log('→ Chrome Headless Shell pour Remotion')
+      try { await ensureRemotionBrowser((m) => console.log(`  ${m}`)); console.log('✓ navigateur de rendu prêt.') } catch (e) {
+        console.log(`⚠ navigateur de rendu non installé (${(e as Error).message}) : il sera téléchargé au premier rendu`)
+      }
+    }
+    return
+  }
   if (cmd === 'init') { await init(process.cwd(), { force: !!args.force, layout: args.layout as 'phone' | 'desktop' | undefined }); return }
   if (!cmd || !['list', 'validate', 'audio', 'record', 'timeline', 'render', 'generate', 'preview'].includes(cmd)) {
     console.log('\nCommandes : setup | init | list | validate | audio | record | timeline | render | generate | preview')

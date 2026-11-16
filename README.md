@@ -28,11 +28,12 @@ Né du projet [Astror](https://github.com/nouhailler/astror), puis extrait pour 
 Prérequis : Node ≥ 20, Python 3 avec `venv`, FFmpeg (`ffmpeg` et `ffprobe` dans le PATH).
 
 ```bash
-npm install -D github:nouhailler/video-studio#v0.1.0
+npm install -D github:nouhailler/video-studio#v0.2.0
 ```
 
 Une fois par machine (venv Piper, voix FR/EN, Chromium ; partagés par tous les projets dans
-`~/.cache/video-studio`) :
+`~/.cache/video-studio`), plus le navigateur de rendu de Remotion (~100 Mo, dans le `node_modules`
+du projet courant) :
 
 ```bash
 npx video-studio setup
@@ -94,7 +95,8 @@ export default defineVideoConfig({
 
 Autres réglages (valeurs par défaut entre parenthèses) : `capture` (viewport selon `layout`,
 `stepTimeoutMs` 10000, `breathMs` 650, `tailMs` 1200, `locale` fr-FR, `timezone` Europe/Paris),
-`output` (1920×1080, 30 i/s, `crf` 18, `concurrency` 2), `narration` (pauses 300 / 550 ms),
+`output` (1920×1080, 30 i/s, `crf` 18, `concurrency` 2, `timeoutMs` 120000 ; en cas de délai dépassé, le
+rendu est relancé une fois avec un seul onglet), `narration` (pauses 300 / 550 ms),
 `voices` / `defaultVoice` (fr-siwis, fr-tom, en-alba), `voicesDir`, `subtitles`
 (42 caractères × 2 lignes, incrustation désactivée), `verifyRestore`.
 
@@ -145,6 +147,39 @@ video-studio injecte son propre moteur dans la page. Il suffit de poser des attr
 `narrate`, `wait`. Après une navigation, le moteur attend que le DOM soit calme (et que
 `driver.loadingSelector` ait disparu, si fourni).
 
+- `click` : si la cible ne porte pas d'action elle-même mais contient un élément actionnable
+  (bouton, lien, rôle ARIA, nœud Flutter `flt-tappable`) qui la recouvre presque entièrement, c'est
+  lui qui reçoit le clic. Un petit bouton à l'intérieur d'une carte n'est jamais choisi.
+- `type` : la cible peut être le champ lui-même ou un conteneur qui contient le champ.
+- `navigate` par `target` échoue si le clic n'a rien changé (ni DOM, ni URL) : pas de vidéo fausse.
+
+### Applications Flutter Web
+
+Flutter dessine dans un canvas : pas de `data-demo-id`. On cible l'arbre d'accessibilité.
+
+1. Envelopper les widgets à montrer : `Semantics(identifier: 'recherche', child: …)`.
+2. Activer l'arbre d'accessibilité **seulement en capture**, avant `runApp` :
+
+   ```dart
+   if (Uri.base.queryParameters['capture'] == '1') {
+     SemanticsBinding.instance.ensureSemantics();   // import 'package:flutter/semantics.dart'
+   }
+   ```
+
+3. Configuration :
+
+   ```ts
+   app: { build: 'flutter build web --release', staticDir: 'build/web' },
+   driver: { type: 'runtime', url: '/?capture=1', targetAttribute: 'flt-semantics-identifier' },
+   validation: { sourceDirs: ['lib'] },   // lit les Semantics(identifier: …) des fichiers .dart
+   preseed: () => ({ 'flutter.ma_cle': 'true' }),   // SharedPreferences web : préfixe « flutter. », valeur JSON
+   ```
+
+Ce qui a été vérifié sur une vraie application (Boulangeor) : surbrillance, clic (onglets, cartes),
+saisie dans un `TextField`, défilement jusqu'à un élément hors écran, attente après navigation.
+Conseils : poser l'identifiant sur le widget cliquable ou **sous** lui (par exemple dans l'`InkWell`
+d'une carte) ; une navigation `Navigator` ne change pas l'URL, utiliser `navigate` avec `target`.
+
 ### `engine` — l'application a son propre moteur de démo
 
 C'est le cas d'Astror (`src/demo/`). Le moteur de l'app doit parler le **protocole de capture** :
@@ -193,4 +228,6 @@ fiches des modèles sur rhasspy/piper-voices), polices Fontsource (OFL-1.1).
 
 - Format vertical 9:16 non encore proposé (mises en page : `phone`, `desktop`).
 - Navigation `url` : SPA à base de `history`/`popstate` ; un rechargement complet de page interrompt le moteur injecté.
+- Capture d'écran en pixels CSS : le screencast de Chromium ignore `deviceScaleFactor` (en `phone`,
+  430×932). La taille réelle est mesurée et inscrite dans `capture.json`.
 - Minutage mot à mot estimé avec les voix Piper actuelles.

@@ -233,6 +233,18 @@ describe('validation des scénarios', () => {
     for (const id of ['menu', 'recherche', 'liste', 'fiche']) expect(targets.exact.has(id)).toBe(true)
     expect(targets.prefixes).toContain('objet-')
   })
+  it('Flutter : lit Semantics(identifier: …) dans les fichiers .dart', () => {
+    const p = project({ driver: { type: 'runtime', targetAttribute: 'flt-semantics-identifier' }, validation: { sourceDirs: [path.resolve(__dirname, 'fixtures', 'app')] } }, 'flutter')
+    expect(p.config.validation.targetAttribute).toBe('identifier')
+    const t = collectTargets(p)
+    expect(t.exact.has('dart-titre')).toBe(true)
+    expect(t.exact.has('dart-recherche')).toBe(true)
+    expect(t.prefixes).toContain('dart-carte-')
+  })
+  it('motifs de recherche supplémentaires (validation.patterns)', () => {
+    const p = project({ validation: { sourceDirs: [path.resolve(__dirname, 'fixtures', 'app')], patterns: [/Text\('([A-Z][a-z]+)'\)/] } }, 'motifs')
+    expect(collectTargets(p).exact.has('Titre')).toBe(true)
+  })
   it('accepte un scénario runtime valide', () => {
     const ok = scenario(['x'])
     ok.scenario.steps.push({ type: 'click', target: 'menu' }, { type: 'type', target: 'recherche', text: 'M4' }, { type: 'click', target: 'objet-m42' })
