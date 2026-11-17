@@ -3,7 +3,7 @@ APPLICATION : NomDeLApp
 <!-- Mode d'emploi : remplacer « NomDeLApp » ci-dessus par le nom du dossier de l'application
      (dans /home/patrick/Documents/Claude/Projets/), puis coller tout ce fichier dans Claude. -->
 
-Brancher le paquet @nouhailler/video-studio sur l'application indiquée ci-dessus (PWA React,
+Avec l'outil video-studio (installé sur la machine), préparer l'application indiquée ci-dessus (PWA React,
 dossier /home/patrick/Documents/Claude/Projets/<APPLICATION>) et produire une première vidéo de
 présentation courte (≈ 30–60 s, 2 ou 3 écrans ; cette durée est un ordre de grandeur, pas une
 limite : une vidéo plus longue est acceptée).
@@ -15,11 +15,14 @@ limite : une vidéo plus longue est acceptée).
    Lire aussi le package.json, la config Vite et le routeur de l'application pour savoir comment
    elle se construit et navigue.
 
-2. **Installer** — Dans le dossier de l'application :
-   `npm install -D github:nouhailler/video-studio#v0.2.0`, puis `npx video-studio init`.
-   Vérifier que node_modules/ et les sorties générées de video/ sont dans le .gitignore.
-   `video-studio setup` est déjà fait sur la machine (voix dans ~/.cache/video-studio) : ne pas le
-   relancer, sauf si le navigateur de rendu Remotion manque dans ce projet.
+2. **Initialiser** — Dans le dossier de l'application : `video-studio init` (crée video/ et
+   les entrées .gitignore des fichiers générés ; ne touche pas au package.json).
+   video-studio est installé **globalement** sur la machine (commande `video-studio`, `setup`
+   déjà fait) : ne jamais l'ajouter au package.json de l'application (ni dépendance, ni script
+   npm) — il ne doit rien ajouter au déploiement. Si la commande `video-studio` est
+   introuvable, me le signaler au lieu de l'installer dans le projet.
+   Si le package.json contient encore `@nouhailler/video-studio` ou des scripts `video:*`
+   (ancienne installation), les retirer (`npm uninstall @nouhailler/video-studio`).
 
 3. **Cibles** — Poser `data-demo-id="…"` dans le JSX sur les éléments à montrer (navigation,
    bouton principal, champ de recherche, une carte de liste…).
@@ -46,7 +49,7 @@ limite : une vidéo plus longue est acceptée).
      `url` ne fonctionne qu'avec un routeur basé sur history (pas HashRouter).
    - Les narrations ne décrivent que ce qui est réellement à l'écran : vérifier sur des captures.
 
-6. **Générer et contrôler** — `npm run video:generate -- --scenario presentation-fr`, puis
+6. **Générer et contrôler** — `video-studio generate --scenario presentation-fr`, puis
    contrôler le MP4 et des images clés : curseur et surbrillance sur les bons éléments, voix
    synchronisée, aucun écran vide ou d'erreur. Corriger et relancer jusqu'à ce que ce soit propre.
    **Durée : ne jamais raccourcir une vidéo parce qu'elle dépasse 60 s** (pas de suppression
@@ -60,8 +63,9 @@ limite : une vidéo plus longue est acceptée).
    `video/presentation-fr.youtube.txt` et l'afficher en entier dans ton message final.
 
 Contraintes :
-- Ne pas ajouter SKIP_DEPENDENCY_INSTALL au déploiement (Cloudflare Pages) : le build React a
-  besoin de `npm install`. video-studio en devDependency allonge seulement l'installation.
+- package.json et package-lock.json de l'application inchangés par rapport à avant (sauf retrait
+  d'une ancienne installation de video-studio). Ne pas ajouter SKIP_DEPENDENCY_INSTALL au
+  déploiement (Cloudflare Pages) : le build React a besoin de `npm install`.
 - Ne pas modifier le comportement de l'application pour les utilisateurs : seuls les attributs
   data-demo-id et le dossier video/ sont ajoutés.
 - Ne rien committer ni pousser sans me le demander ; à la fin, me résumer les fichiers modifiés,

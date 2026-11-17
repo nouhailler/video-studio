@@ -1,5 +1,22 @@
 # Journal des modifications
 
+## 0.3.0 — 2026-11-17
+
+video-studio devient un outil de la machine, installé une fois globalement, et non plus une
+dépendance des applications : les déploiements n'installent plus Remotion, Playwright, etc.
+
+- Installation : `npm install -g github:nouhailler/video-studio#v0.3.0`, puis `video-studio setup`.
+- `init` ne modifie plus le `package.json` (ni dépendance, ni scripts `video:*`) et fonctionne sans
+  `package.json` (nom lu dans `pubspec.yaml` ou le nom du dossier ; build Flutter détecté).
+- Les imports `'@nouhailler/video-studio'` des fichiers `video/` sont résolus par la CLI qui
+  s'exécute : rien à installer dans le projet (ESM comme CommonJS).
+- Racine du projet : le dossier qui contient `video/`, même sans `package.json`.
+- Navigateur de rendu et cache webpack de Remotion partagés dans `~/.cache/video-studio/remotion`
+  au lieu de `node_modules/.remotion` et `.cache/` du projet.
+- `setup` installe Chromium avec la version de Playwright du paquet (plus `npx playwright` au hasard).
+- `theme.fontCss` : cherché dans le projet, puis dans les dépendances de video-studio.
+- Node ≥ 20.6 (crochets de résolution `module.register`).
+
 ## 0.2.0 — 2026-11-16
 
 Retours de la première intégration dans une application Flutter Web (Boulangeor).

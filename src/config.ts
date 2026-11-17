@@ -2,11 +2,11 @@
 // qui exporte `defineVideoConfig({...})`. Tout ce qui n'est pas précisé prend
 // les valeurs par défaut ci-dessous.
 import { existsSync } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { AnyStep, BaseStep, Layout, ThemeColors, TimelineTheme, VideoScenario } from './types'
 import { DEFAULT_COLORS } from './config-defaults'
+import { studioHome } from './lib/paths'
 
 export { DEFAULT_COLORS }
 
@@ -215,7 +215,7 @@ export interface Project {
   configFile: string
   /** Dossier vidéo du projet (celui du fichier de configuration). */
   dir: string
-  /** Racine de l'application (dossier contenant package.json). */
+  /** Racine de l'application : dossier qui contient video/ (sinon celui du package.json le plus proche). */
   root: string
 }
 
@@ -245,7 +245,7 @@ export function resolveConfig(c: VideoStudioConfig, dir: string, root: string): 
     voices: { ...DEFAULT_VOICES, ...c.voices },
     defaultVoice: { fr: 'fr-siwis', en: 'en-alba', ...c.defaultVoice },
     voicesDir: c.voicesDir ? path.resolve(dir, c.voicesDir)
-      : process.env.VIDEO_STUDIO_HOME ?? path.join(process.env.XDG_CACHE_HOME ?? path.join(os.homedir(), '.cache'), 'video-studio'),
+      : studioHome(),
     pronunciations: pron,
     subtitles: { maxCharsPerLine: 42, maxLines: 2, minCueMs: 1200, burnIn: false, ...c.subtitles },
     network: {
@@ -285,6 +285,8 @@ function defaultSourceAttribute(c: VideoStudioConfig): string {
 }
 
 function findRoot(start: string): string {
+  // Cas standard : <app>/video/video.config.ts → <app>, que l'app ait un package.json ou non.
+  if (path.basename(start) === 'video') return path.dirname(start)
   let d = start
   while (true) {
     if (existsSync(path.join(d, 'package.json'))) return d
@@ -301,7 +303,7 @@ export async function loadProject(configArg?: string, cwd = process.cwd()): Prom
     ? path.resolve(cwd, configArg)
     : CONFIG_CANDIDATES.map((c) => path.resolve(cwd, c)).find((f) => existsSync(f))
   if (!file || !existsSync(file)) {
-    throw new Error(`Configuration introuvable (${configArg ?? CONFIG_CANDIDATES.join(' ou ')}). Créez-la avec « npx video-studio init ».`)
+    throw new Error(`Configuration introuvable (${configArg ?? CONFIG_CANDIDATES.join(' ou ')}). Créez-la avec « video-studio init ».`)
   }
   const mod = await import(pathToFileURL(file).href)
   const raw = (mod.default ?? mod.config) as VideoStudioConfig | undefined

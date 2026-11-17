@@ -5,7 +5,7 @@ APPLICATION : NomDeLApp
      Fonctionne que la courte vidéo de présentation (presentation-pwa-react.md) ait déjà été
      faite ou non. -->
 
-Avec le paquet @nouhailler/video-studio, produire un **tutoriel vidéo complet d'environ 4 minutes**
+Avec l'outil video-studio (installé sur la machine), produire un **tutoriel vidéo complet d'environ 4 minutes**
 de l'application indiquée ci-dessus (PWA React, dossier
 /home/patrick/Documents/Claude/Projets/<APPLICATION>) : la plupart des écrans, les fonctions
 principales montrées en action, et des explications plus détaillées qu'une simple présentation.
@@ -17,15 +17,19 @@ principales montrées en action, et des explications plus détaillées qu'une si
    scénarios) et src/runtime/engine.ts. Parcourir l'application (routes, écrans, composants, doc
    utilisateur ou FAQ si elle existe) et dresser la liste des écrans et des fonctions à montrer.
 
-2. **Installation (si nécessaire)** — Si video/video.config.ts existe déjà, réutiliser
-   l'installation et la config existantes. Sinon : `npm install -D github:nouhailler/video-studio#v0.2.0`,
-   `npx video-studio init`, vérifier le .gitignore (node_modules/, sorties de video/), et écrire
-   video/video.config.ts : `app: { build: 'npm run build', staticDir: 'dist' }` (adapter),
+2. **Initialisation (si nécessaire)** — Si video/video.config.ts existe déjà, réutiliser la
+   config existante. Sinon : `video-studio init` (crée video/ et les entrées .gitignore ; ne touche
+   pas au package.json), puis écrire video/video.config.ts : `app: { build: 'npm run build', staticDir: 'dist' }` (adapter),
    `driver: { type: 'runtime' }` (+ `loadingSelector` si besoin), `layout: 'phone'`,
    `validation: { sourceDirs: ['src'] }`, thème aux couleurs et logo de l'app, `preseed`
    (onboarding / avertissement légal passés, données de démonstration crédibles et assez riches
    pour remplir les écrans — jamais de données réelles), `network.fixtures` pour les API externes.
-   `video-studio setup` est déjà fait sur la machine : ne pas le relancer.
+   video-studio est installé **globalement** sur la machine (commande `video-studio`, `setup`
+   déjà fait) : ne jamais l'ajouter au package.json de l'application (ni dépendance, ni script
+   npm) — il ne doit rien ajouter au déploiement. Si la commande `video-studio` est
+   introuvable, me le signaler au lieu de l'installer dans le projet.
+   Si le package.json contient encore `@nouhailler/video-studio` ou des scripts `video:*`
+   (ancienne installation), les retirer (`npm uninstall @nouhailler/video-studio`).
 
 3. **Plan du tutoriel** — Avant d'écrire le scénario, me proposer un plan de 5 à 7 chapitres
    (≈ 30–45 s chacun) : titre du chapitre, écrans traversés, actions montrées, idée de la
@@ -53,8 +57,8 @@ principales montrées en action, et des explications plus détaillées qu'une si
      `readingPause` après une explication dense.
    - Les narrations ne décrivent que ce qui est réellement à l'écran : vérifier sur des captures.
 
-6. **Générer et contrôler** — `npm run video:validate -- --scenario tutoriel-fr`, puis
-   `npm run video:generate -- --scenario tutoriel-fr`. Si le rendu dépasse le délai, augmenter
+6. **Générer et contrôler** — `video-studio validate --scenario tutoriel-fr`, puis
+   `video-studio generate --scenario tutoriel-fr`. Si le rendu dépasse le délai, augmenter
    `output.timeoutMs`. Contrôler le MP4 et des images clés de chaque chapitre. **Durée : ne jamais
    raccourcir une vidéo parce qu'elle dépasse 4 min 30** (pas de suppression d'étapes, de pauses
    de lecture ni de réduction de `breathMs` pour gagner du temps) ; ne raccourcir que si je le
@@ -70,8 +74,9 @@ principales montrées en action, et des explications plus détaillées qu'une si
    `video/tutoriel-fr.youtube.txt` et l'afficher en entier dans ton message final.
 
 Contraintes :
-- Ne pas ajouter SKIP_DEPENDENCY_INSTALL au déploiement (Cloudflare Pages) : le build React a
-  besoin de `npm install`.
+- package.json et package-lock.json de l'application inchangés par rapport à avant (sauf retrait
+  d'une ancienne installation de video-studio). Ne pas ajouter SKIP_DEPENDENCY_INSTALL au
+  déploiement (Cloudflare Pages) : le build React a besoin de `npm install`.
 - Ne pas modifier le comportement de l'application pour les utilisateurs : seuls les attributs
   data-demo-id et le dossier video/ sont ajoutés.
 - Ne rien committer ni pousser sans me le demander ; à la fin, me résumer les fichiers modifiés,

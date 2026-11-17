@@ -1,12 +1,18 @@
 // Emplacements d'un projet. Tout ce qui est généré vit dans le dossier vidéo
 // du projet, dans des sous-dossiers à ignorer par git : audio/, cache/,
 // recordings/, build/, output/.
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Project } from '../config'
 
 /** Racine du paquet video-studio. */
 export const PKG_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+
+/** Dossier partagé par tous les projets (voix, venv Piper, navigateur de rendu Remotion). */
+export function studioHome(): string {
+  return process.env.VIDEO_STUDIO_HOME ?? path.join(process.env.XDG_CACHE_HOME ?? path.join(os.homedir(), '.cache'), 'video-studio')
+}
 
 export function projectPaths(p: Project) {
   const d = p.dir

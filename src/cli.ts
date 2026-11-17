@@ -62,7 +62,8 @@ async function doAudio(p: Project, scn: VideoScenario, force: boolean, log: (m: 
 function runSetup(args: ReturnType<typeof parseArgs>): Promise<number> {
   return new Promise((resolve) => {
     const extra = typeof args.voices === 'string' ? [args.voices] : []
-    const env = { ...process.env, ...(typeof args.dir === 'string' ? { VIDEO_STUDIO_HOME: path.resolve(args.dir) } : {}) }
+    const playwrightCli = path.join(path.dirname(createRequire(import.meta.url).resolve('playwright/package.json')), 'cli.js')
+    const env = { ...process.env, PLAYWRIGHT_CLI: playwrightCli, ...(typeof args.dir === 'string' ? { VIDEO_STUDIO_HOME: path.resolve(args.dir) } : {}) }
     spawn('bash', [path.join(PKG_DIR, 'scripts', 'setup.sh'), ...extra], { stdio: 'inherit', env }).on('close', (c) => resolve(c ?? 1))
   })
 }

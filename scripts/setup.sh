@@ -6,7 +6,7 @@
 # Dossier : $VIDEO_STUDIO_HOME, sinon ${XDG_CACHE_HOME:-~/.cache}/video-studio.
 # Usage : video-studio setup [voix supplémentaire, ex. de_DE-thorsten-medium]
 # Le « Chrome Headless Shell » de Remotion est installé ensuite par la CLI
-# (dans node_modules/.remotion du projet courant).
+# (dans le même dossier, sous remotion/).
 set -euo pipefail
 HOME_DIR="${VIDEO_STUDIO_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/video-studio}"
 PIPER_VERSION="1.8.0"
@@ -33,5 +33,6 @@ for v in "${VOICES[@]}"; do
   fi
 done
 echo "→ Chromium pour Playwright"
-npx --yes playwright install chromium
+# Version de Playwright du paquet (PLAYWRIGHT_CLI, fourni par la CLI), pas la dernière publiée.
+if [ -n "${PLAYWRIGHT_CLI:-}" ]; then node "$PLAYWRIGHT_CLI" install chromium; else npx --yes playwright install chromium; fi
 echo "✓ video-studio prêt."

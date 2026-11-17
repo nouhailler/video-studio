@@ -1,12 +1,12 @@
 {
   "name": "@nouhailler/video-studio",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Génération automatique de tutoriels vidéo à partir d'applications web réelles : scénario TypeScript → capture Playwright → voix locale (Piper) → composition Remotion → MP4, sous-titres, chapitres.",
   "type": "module",
   "license": "MIT",
   "author": "Patrick Nouhailler (https://swinux.ch)",
   "repository": { "type": "git", "url": "git+https://github.com/nouhailler/video-studio.git" },
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=20.6" },
   "bin": { "video-studio": "bin/video-studio.mjs" },
   "exports": {
     ".": "./src/index.ts",

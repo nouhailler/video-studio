@@ -25,28 +25,47 @@ Né du projet [Astror](https://github.com/nouhailler/astror), puis extrait pour 
 
 ## Installation
 
-Prérequis : Node ≥ 20, Python 3 avec `venv`, FFmpeg (`ffmpeg` et `ffprobe` dans le PATH).
+video-studio est un **outil de votre machine**, pas une dépendance de vos applications : on
+l'installe une fois, globalement, et il ne s'ajoute jamais au `package.json` d'un projet. Les
+déploiements (Cloudflare Pages, etc.) n'installent donc rien de plus.
+
+Prérequis : Node ≥ 20.6, Python 3 avec `venv`, FFmpeg (`ffmpeg` et `ffprobe` dans le PATH).
 
 ```bash
-npm install -D github:nouhailler/video-studio#v0.2.0
+npm install -g github:nouhailler/video-studio#v0.3.0
 ```
 
-Une fois par machine (venv Piper, voix FR/EN, Chromium ; partagés par tous les projets dans
-`~/.cache/video-studio`), plus le navigateur de rendu de Remotion (~100 Mo, dans le `node_modules`
-du projet courant) :
+(L'avertissement npm sur le script d'installation d'esbuild est sans conséquence.)
+Mise à jour : la même commande avec la nouvelle étiquette.
+
+Une fois par machine — venv Piper, voix FR/EN, Chromium pour Playwright et navigateur de rendu de
+Remotion, partagés par tous les projets dans `~/.cache/video-studio` :
 
 ```bash
-npx video-studio setup
+video-studio setup
 ```
 
-Dans un nouveau projet :
+Dans un projet (React, Vue, HTML statique, Flutter Web…) :
 
 ```bash
-npx video-studio init
+video-studio init
 ```
 
-`init` crée `video/video.config.ts`, un premier scénario `video/scenarios/presentation-fr.ts`,
-les entrées `.gitignore` et les scripts `npm run video:*`.
+`init` crée `video/video.config.ts`, un premier scénario `video/scenarios/presentation-fr.ts` et
+les entrées `.gitignore` des fichiers générés. Il ne touche ni au `package.json` ni aux
+dépendances ; le projet n'a même pas besoin d'en avoir un. Les imports
+`'@nouhailler/video-studio'` des fichiers `video/` sont résolus par la CLI elle-même. Seul ce
+dossier `video/` (configuration et scénarios, quelques Ko) est versionné avec l'application.
+
+### Projets qui avaient video-studio en dépendance (≤ 0.2)
+
+```bash
+npm uninstall @nouhailler/video-studio
+```
+
+Puis retirer les scripts `video:*` du `package.json` et lancer `video-studio <commande>`
+directement. Le dossier `video/` reste tel quel. Un dossier `node_modules/.remotion` laissé par
+l'ancienne version peut être supprimé.
 
 ## Commandes
 
@@ -62,8 +81,8 @@ les entrées `.gitignore` et les scripts `npm run video:*`.
 | `video-studio setup [voix]` | Installation (voix supplémentaire possible, ex. `de_DE-thorsten-medium`) |
 | `video-studio init [--layout desktop]` | Initialise un projet |
 
-Options : `--config <fichier>` (défaut `video/video.config.ts`), `--no-build`, `--headed`,
-`--network replay|refresh|offline`.
+Toutes les commandes se lancent depuis la racine du projet. Options : `--config <fichier>`
+(défaut `video/video.config.ts`), `--no-build`, `--headed`, `--network replay|refresh|offline`.
 
 ## Configuration (`video/video.config.ts`)
 
@@ -73,7 +92,7 @@ import presentation from './scenarios/presentation-fr'
 
 export default defineVideoConfig({
   name: 'Mon app',
-  app: { build: 'npx vite build', staticDir: 'dist' },   // ou app.command: 'npm run preview -- --port {port}'
+  app: { build: 'npm run build', staticDir: 'dist' },     // ou app.command: 'npm run preview -- --port {port}'
   driver: { type: 'runtime' },                            // voir « Pilotes »
   layout: 'phone',                                        // 'phone' (PWA mobile) ou 'desktop'
   scenarios: [presentation],
@@ -81,7 +100,7 @@ export default defineVideoConfig({
   theme: {
     brand: 'Mon app', logo: 'assets/logo.svg', url: 'mon-app.exemple.org',
     colors: { accent: '#d9b36c', accentLight: '#efce8c', accentDark: '#b8924c' },
-    fontCss: ['@fontsource/inter/400.css'], fonts: { sans: "'Inter', sans-serif" },
+    fontCss: ['@fontsource/inter/400.css'], fonts: { sans: "'Inter', sans-serif" },   // police installée dans le projet
     labels: { chapter: 'Chapitre', tutorial: 'Tutoriel', intro: 'Introduction', outro: 'Conclusion' },
   },
   // Données de démonstration posées avant le chargement (jamais vos données réelles) :

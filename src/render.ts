@@ -1,11 +1,12 @@
 // Rendu final avec Remotion (H.264 + AAC) puis vérification de l'export :
 // codec, résolution, cadence, présence et niveau de l'audio, durée attendue,
 // décodage complet. Un export qui échoue n'est jamais publié.
-import { copyFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Project } from './config'
 import type { Timeline, VideoScenario } from './types'
-import { PKG_DIR, projectFiles, projectPaths, rel } from './lib/paths'
+import { PKG_DIR, projectFiles, projectPaths, rel, studioHome } from './lib/paths'
 import { StudioError, ensureDir, ffprobe, readJson, run, writeJson } from './lib/util'
 
 export interface RenderOptions { log?: (m: string) => void }
@@ -35,17 +36,32 @@ export async function preparePublicDir(p: Project, scn: VideoScenario): Promise<
   return pub
 }
 
+const pkgRequire = createRequire(path.join(PKG_DIR, 'package.json'))
+
+/**
+ * Feuille de style de police du thème, en chemin absolu : cherchée dans le projet,
+ * puis dans les dépendances de video-studio (le projet n'a pas à installer quoi que ce soit).
+ */
+function resolveFontCss(p: Project, f: string): string {
+  if (f.startsWith('.')) return path.resolve(p.dir, f)
+  if (path.isAbsolute(f)) return f
+  for (const req of [createRequire(path.join(p.root, 'package.json')), pkgRequire]) {
+    try { return req.resolve(f) } catch { /* suivant */ }
+  }
+  throw new StudioError(`Police introuvable : ${f}`, 'Installer le paquet de police dans le projet, ou retirer theme.fontCss.')
+}
+
 /** Point d'entrée Remotion propre au projet : polices du thème + composition du paquet. */
 export function writeEntry(p: Project, scn: VideoScenario): string {
   const entry = path.join(projectPaths(p).build(scn.id), 'entry.ts')
-  const fonts = p.config.theme.fontCss.map((f) => {
-    const spec = f.startsWith('.') ? path.resolve(p.dir, f) : f
-    return `import ${JSON.stringify(spec)}`
-  })
+  const fonts = p.config.theme.fontCss.map((f) => `import ${JSON.stringify(resolveFontCss(p, f))}`)
+  // `remotion` par le dossier du paquet (pas le fichier) : webpack le résout comme
+  // l'import nu de la composition, donc une seule instance.
+  const remotionDir = path.dirname(pkgRequire.resolve('remotion/package.json'))
   writeFileSync(entry, [
     '// Généré par video-studio — ne pas modifier.',
     ...fonts,
-    "import { registerRoot } from 'remotion'",
+    `import { registerRoot } from ${JSON.stringify(remotionDir)}`,
     `import { Root } from ${JSON.stringify(path.join(PKG_DIR, 'src', 'compositions', 'Root'))}`,
     'registerRoot(Root)',
     '',
@@ -101,24 +117,48 @@ function isTransientRenderError(err: unknown): boolean {
 }
 
 /**
- * Chrome Headless Shell de Remotion (~100 Mo, dans node_modules/.remotion du projet).
- * Appelé par `setup` et avant chaque rendu, pour que le téléchargement soit annoncé.
+ * Dossier Remotion partagé par tous les projets : navigateur de rendu et cache webpack.
+ * Remotion range l'un et l'autre près du package.json le plus proche ; ce dossier a le
+ * sien, pour que rien ne soit écrit dans le projet.
  */
-export async function ensureRemotionBrowser(log: (m: string) => void): Promise<void> {
+function remotionHome(): string {
+  const dir = path.join(studioHome(), 'remotion')
+  mkdirSync(dir, { recursive: true })
+  const pkg = path.join(dir, 'package.json')
+  if (!existsSync(pkg)) writeFileSync(pkg, '{ "private": true, "description": "Navigateur de rendu et cache Remotion partagés par video-studio" }\n')
+  return dir
+}
+
+/**
+ * Chrome Headless Shell de Remotion (~100 Mo), partagé par tous les projets dans
+ * <studioHome>/remotion/.remotion. Remotion le range près du package.json du dossier
+ * courant : on lui fournit le nôtre le temps du téléchargement, puis on passe le chemin
+ * de l'exécutable au rendu. Appelé par `setup` et avant chaque rendu.
+ */
+export async function ensureRemotionBrowser(log: (m: string) => void): Promise<string> {
   const { ensureBrowser } = await import('@remotion/renderer')
+  const dir = remotionHome()
+  const cwd = process.cwd()
   let last = -25
-  await ensureBrowser({
-    onBrowserDownload: () => {
-      log('téléchargement de Chrome Headless Shell pour Remotion (~100 Mo, une fois par projet)…')
-      return {
-        version: null,
-        onProgress: ({ percent }) => {
-          const pct = Math.floor(percent <= 1 ? percent * 100 : percent)
-          if (pct >= last + 25) { last = pct; log(`téléchargement ${pct} %`) }
-        },
-      }
-    },
-  })
+  process.chdir(dir)
+  try {
+    const status = await ensureBrowser({
+      onBrowserDownload: () => {
+        log('téléchargement de Chrome Headless Shell pour Remotion (~100 Mo, une fois par machine)…')
+        return {
+          version: null,
+          onProgress: ({ percent }) => {
+            const pct = Math.floor(percent <= 1 ? percent * 100 : percent)
+            if (pct >= last + 25) { last = pct; log(`téléchargement ${pct} %`) }
+          },
+        }
+      },
+    })
+    if (!('path' in status)) throw new StudioError('Navigateur de rendu Remotion indisponible')
+    return status.path
+  } finally {
+    process.chdir(cwd)
+  }
 }
 
 export async function render(p: Project, scn: VideoScenario, opts: RenderOptions = {}): Promise<RenderOutput> {
@@ -132,20 +172,20 @@ export async function render(p: Project, scn: VideoScenario, opts: RenderOptions
   const { renderMedia, selectComposition } = await import('@remotion/renderer')
 
   log('préparation de la composition (bundle Remotion)…')
-  const serveUrl = await bundle({ entryPoint: entry, publicDir: pub, outDir: path.join(P.build(scn.id), 'bundle') })
+  const serveUrl = await bundle({ entryPoint: entry, publicDir: pub, outDir: path.join(P.build(scn.id), 'bundle'), rootDir: remotionHome() })
   const inputProps = tl as unknown as Record<string, unknown>
-  const composition = await selectComposition({ serveUrl, id: 'VideoStudioTutorial', inputProps })
+  const browserExecutable = await ensureRemotionBrowser(log)
+  const composition = await selectComposition({ serveUrl, id: 'VideoStudioTutorial', inputProps, browserExecutable })
   ensureDir(P.output)
   const mp4 = files.mp4(scn.id)
   const tmp = `${mp4}.partial.mp4`
   rmSync(tmp, { force: true })
-  await ensureRemotionBrowser(log)
   const out = p.config.output
   const attempt = (concurrency: number, timeoutInMilliseconds: number) => {
     let lastPct = -10
     return renderMedia({
       composition, serveUrl, inputProps, codec: 'h264', audioCodec: 'aac', crf: out.crf,
-      pixelFormat: 'yuv420p', outputLocation: tmp, concurrency, timeoutInMilliseconds, chromiumOptions: { gl: 'swangle' },
+      pixelFormat: 'yuv420p', outputLocation: tmp, concurrency, timeoutInMilliseconds, chromiumOptions: { gl: 'swangle' }, browserExecutable,
       onProgress: ({ progress }) => {
         const pct = Math.floor(progress * 100)
         if (pct >= lastPct + 10) { lastPct = pct; log(`rendu ${pct} %`) }
