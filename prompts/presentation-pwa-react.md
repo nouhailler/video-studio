@@ -49,10 +49,16 @@ présentation courte (≈ 30–60 s, 2 ou 3 écrans).
    contrôler le MP4 et des images clés : curseur et surbrillance sur les bons éléments, voix
    synchronisée, aucun écran vide ou d'erreur. Corriger et relancer jusqu'à ce que ce soit propre.
 
+7. **Description YouTube** — Pour la vidéo générée, écrire un petit texte de présentation à mettre
+   en description YouTube : une accroche de 1–2 phrases, ce que montre la vidéo (fidèle au
+   scénario réel), le lien vers l'application, puis le chapitrage repris du fichier
+   `presentation-fr.chapters.txt` produit. L'enregistrer dans
+   `video/presentation-fr.youtube.txt` et l'afficher en entier dans ton message final.
+
 Contraintes :
 - Ne pas ajouter SKIP_DEPENDENCY_INSTALL au déploiement (Cloudflare Pages) : le build React a
   besoin de `npm install`. video-studio en devDependency allonge seulement l'installation.
 - Ne pas modifier le comportement de l'application pour les utilisateurs : seuls les attributs
   data-demo-id et le dossier video/ sont ajoutés.
 - Ne rien committer ni pousser sans me le demander ; à la fin, me résumer les fichiers modifiés,
-  la durée de la vidéo et le chemin du MP4.
+  la durée de la vidéo, le chemin du MP4 et la description YouTube.
