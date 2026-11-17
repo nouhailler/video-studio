@@ -5,7 +5,8 @@ APPLICATION : NomDeLApp
 
 Brancher le paquet @nouhailler/video-studio sur l'application indiquée ci-dessus (PWA React,
 dossier /home/patrick/Documents/Claude/Projets/<APPLICATION>) et produire une première vidéo de
-présentation courte (≈ 30–60 s, 2 ou 3 écrans).
+présentation courte (≈ 30–60 s, 2 ou 3 écrans ; cette durée est un ordre de grandeur, pas une
+limite : une vidéo plus longue est acceptée).
 
 Étapes :
 
@@ -48,6 +49,9 @@ présentation courte (≈ 30–60 s, 2 ou 3 écrans).
 6. **Générer et contrôler** — `npm run video:generate -- --scenario presentation-fr`, puis
    contrôler le MP4 et des images clés : curseur et surbrillance sur les bons éléments, voix
    synchronisée, aucun écran vide ou d'erreur. Corriger et relancer jusqu'à ce que ce soit propre.
+   **Durée : ne jamais raccourcir une vidéo parce qu'elle dépasse 60 s** (pas de suppression
+   d'étapes, de pauses de lecture ni de réduction de `breathMs` pour gagner du temps) ; ne
+   raccourcir que si je le demande.
 
 7. **Description YouTube** — Pour la vidéo générée, écrire un petit texte de présentation à mettre
    en description YouTube : une accroche de 1–2 phrases, ce que montre la vidéo (fidèle au
