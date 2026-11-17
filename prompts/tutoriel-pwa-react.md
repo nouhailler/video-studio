@@ -30,6 +30,7 @@ principales montrées en action, et des explications plus détaillées qu'une si
 3. **Plan du tutoriel** — Avant d'écrire le scénario, me proposer un plan de 5 à 7 chapitres
    (≈ 30–45 s chacun) : titre du chapitre, écrans traversés, actions montrées, idée de la
    narration. Viser ≈ 550–600 mots de narration au total (≈ 4 min de voix) et 30 à 45 étapes.
+   Cette durée est un ordre de grandeur, pas une limite : une vidéo plus longue est acceptée.
    Ordre logique d'un nouvel utilisateur : découverte → usage principal → fonctions secondaires →
    réglages / hors-ligne / installation de la PWA si pertinent. Attendre ma validation du plan.
 
@@ -54,9 +55,12 @@ principales montrées en action, et des explications plus détaillées qu'une si
 
 6. **Générer et contrôler** — `npm run video:validate -- --scenario tutoriel-fr`, puis
    `npm run video:generate -- --scenario tutoriel-fr`. Si le rendu dépasse le délai, augmenter
-   `output.timeoutMs`. Contrôler le MP4 (durée ≈ 3 min 30 – 4 min 30) et des images clés de
-   chaque chapitre : curseur et surbrillance sur les bons éléments, voix synchronisée, titres de
-   chapitre corrects, aucun écran vide ou d'erreur. Corriger et relancer jusqu'à ce que ce soit
+   `output.timeoutMs`. Contrôler le MP4 et des images clés de chaque chapitre. **Durée : ne jamais
+   raccourcir une vidéo parce qu'elle dépasse 4 min 30** (pas de suppression d'étapes, de pauses
+   de lecture ni de réduction de `breathMs` pour gagner du temps) ; ne raccourcir que si je le
+   demande. Signaler seulement une vidéo nettement trop courte (< 3 min). Points à contrôler :
+   curseur et surbrillance sur les bons éléments, voix synchronisée, titres de chapitre corrects,
+   aucun écran vide ou d'erreur. Corriger et relancer jusqu'à ce que ce soit
    propre.
 
 7. **Description YouTube** — Pour la vidéo générée, écrire un texte de présentation à mettre en
